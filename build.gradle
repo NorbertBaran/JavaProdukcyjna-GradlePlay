@@ -2,3 +2,52 @@ group 'uj.jwzp.gradleplay'
 version '1.0'
 
 apply plugin: 'java'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.apache.commons:commons-lang3:3.9'
+}
+
+task copyProperties(type: Copy){
+    String chooseBuildProfile='default'
+    if(project.hasProperty('buildProfile'))
+        chooseBuildProfile=buildProfile
+
+    apply from: 'profile-'+chooseBuildProfile+'.gradle'
+
+    Properties props = new Properties()
+    File propsFile=new File('profile-'+chooseBuildProfile+'.gradle')
+    InputStream ins = new FileInputStream(propsFile.getPath())
+    props.load(ins)
+    ins.close()
+
+    Map<String, String> map=new HashMap()
+    for(Object key: props.keys()){
+        String strKey=((String) key).substring(4);
+        map.put(strKey, project.ext.get(strKey))
+    }
+
+    from 'src/main/resources'
+    include '*.properties'
+    into 'build/resources/main'
+    expand(map)
+}
+
+task fatJar(type: Jar){
+    manifest {
+        attributes 'Main-Class': 'uj.jwzp.gradleplay.Main'
+    }
+
+    String chooseBuildProfile='default'
+    if(project.hasProperty('buildProfile'))
+        chooseBuildProfile=buildProfile
+    baseName(project.name + '-' + chooseBuildProfile + '-all')
+
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
+fatJar.dependsOn copyProperties
