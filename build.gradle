@@ -7,47 +7,42 @@ repositories {
     mavenCentral()
 }
 
+sourceCompatibility = JavaVersion.VERSION_11
+
 dependencies {
     compile 'org.apache.commons:commons-lang3:3.9'
 }
 
-task copyProperties(type: Copy){
+processResources{
     String chooseBuildProfile='default'
     if(project.hasProperty('buildProfile'))
         chooseBuildProfile=buildProfile
 
     apply from: 'profile-'+chooseBuildProfile+'.gradle'
 
-    Properties props = new Properties()
+    Properties properties = new Properties()
     File propsFile=new File('profile-'+chooseBuildProfile+'.gradle')
-    InputStream ins = new FileInputStream(propsFile.getPath())
-    props.load(ins)
-    ins.close()
+    InputStream fileInputStream = new FileInputStream(propsFile.getPath())
+    properties.load(fileInputStream)
+    fileInputStream.close()
 
     Map<String, String> map=new HashMap()
-    for(Object key: props.keys()){
+    for(Object key: properties.keys()){
         String strKey=((String) key).substring(4);
         map.put(strKey, project.ext.get(strKey))
     }
 
-    from 'src/main/resources'
-    include '*.properties'
-    into 'build/resources/main'
+    outputs.upToDateWhen {false}
     expand(map)
 }
 
 task fatJar(type: Jar){
-    manifest {
-        attributes 'Main-Class': 'uj.jwzp.gradleplay.Main'
-    }
-
     String chooseBuildProfile='default'
     if(project.hasProperty('buildProfile'))
         chooseBuildProfile=buildProfile
-    baseName(project.name + '-' + chooseBuildProfile + '-all')
 
+    manifest {attributes 'Main-Class': 'uj.jwzp.gradleplay.Main'}
+    baseName(project.name + '-' + chooseBuildProfile + '-all')
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
-
-fatJar.dependsOn copyProperties
